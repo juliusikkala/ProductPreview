@@ -1,5 +1,6 @@
 <script>
     import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
     import { PNG } from 'pngjs/browser';
     import { Buffer } from 'buffer';
 
@@ -197,7 +198,7 @@
         width: 100%;
         z-index: 0;
     }
-    .error {
+    .error, .loading {
         display: flex;
         justify-content: center;
         align-items: center;
@@ -232,6 +233,10 @@
             <h1>Error:</h1>
             <p>{error}</p>
         </div>
+    </div>
+    {:else if !ready}
+    <div class="loading" transition:fade>
+        <h1>Loading...</h1>
     </div>
     {/if}
 </div>

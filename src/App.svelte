@@ -28,8 +28,9 @@
 	h1 {
 		color: #ff3e00;
 		text-transform: uppercase;
+        font-family: "Comic Sans MS", "Comic Sans", cursive;
 		font-size: 4em;
-		font-weight: 100;
+		font-weight: 600;
 	}
 
 	@media (min-width: 640px) {
