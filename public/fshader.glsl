@@ -29,7 +29,7 @@ void main() {
         avg_uv /= sum_mask;
         avg_uv = avg_uv.yx;
         vec4 user_col = texture(user_tex, avg_uv);
-        diffuse = vec4(user_col.rgb * user_col.a, 1.0);
+        diffuse = vec4(pow(user_col.rgb, vec3(2.2)) * user_col.a, 1.0);
     }
 
     vec4 composite = diffuse_col * diffuse + glossy_col;
