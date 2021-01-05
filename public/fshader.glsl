@@ -4,6 +4,7 @@ precision mediump float;
 uniform sampler2D diffuse_tex;
 uniform sampler2D glossy_tex;
 uniform sampler2D uv_mask_tex;
+uniform sampler2D user_tex;
 in vec2 uv;
 out vec4 out_color;
 
@@ -26,7 +27,9 @@ void main() {
     if(sum_mask > 0.0)
     {
         avg_uv /= sum_mask;
-        diffuse = vec4(avg_uv, 1.0, 1.0);
+        avg_uv = avg_uv.yx;
+        vec4 user_col = texture(user_tex, avg_uv);
+        diffuse = vec4(user_col.rgb * user_col.a, 1.0);
     }
 
     vec4 composite = diffuse_col * diffuse + glossy_col;

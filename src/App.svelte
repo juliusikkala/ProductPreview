@@ -1,11 +1,20 @@
 <script>
 	export let name;
     import Viewer from './Viewer.svelte';
+    import ImagePicker from './ImagePicker.svelte';
+
+    let userImage;
+    function setImage(event) {
+        userImage = event.detail;
+    }
 </script>
 
 <main>
 	<h1>Product Preview</h1>
-    <Viewer/>
+    <div id="layout">
+        <Viewer userImage={userImage} />
+        <ImagePicker on:picked={setImage} />
+    </div>
 </main>
 
 <style>
@@ -28,4 +37,8 @@
 			max-width: none;
 		}
 	}
+
+    #layout {
+        display: flex;
+    }
 </style>

@@ -5,8 +5,18 @@
 
     let canvas;
     let error;
+    let gl;
+    let userTex;
+    let ready = false;
 
-    async function getShader(gl, type, name) {
+    export let userImage = "favicon.png";
+    $: {
+        if(userImage)  {
+            refreshUserTexture(gl);
+        }
+    }
+
+    async function getShader(type, name) {
         let res = await fetch(name);
         let src = await res.text();
         let shader = gl.createShader(type);
@@ -18,7 +28,7 @@
         return shader;
     }
 
-    function createProgram(gl, vert, frag) {
+    function createProgram(vert, frag) {
         let program = gl.createProgram();
         gl.attachShader(program, vert);
         gl.attachShader(program, frag);
@@ -29,8 +39,31 @@
         return program;
     }
 
+    function refreshUserTexture() {
+        let image = new Image();
+        image.src = userImage;
+        image.onload = () => {
+            if(!ready) return;
 
-    async function loadTexture(gl, name) {
+            if(userTex) {
+                gl.deleteTexture(userTex);
+            }
+
+            gl.activeTexture(gl.TEXTURE3);
+            userTex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, userTex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+            drawFrame();
+        };
+    }
+
+    async function loadTexture(name) {
         let res = await fetch(name);
         let arr = await res.arrayBuffer();
         let buf = new Buffer(arr.byteLength);
@@ -67,8 +100,12 @@
         return tex;
     }
 
+    function drawFrame() {
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
     onMount(async () => {
-        const gl = canvas.getContext('webgl2');
+        gl = canvas.getContext('webgl2');
         if(!gl) {
             error = "Unable to get a WebGL context!";
             return;
@@ -85,13 +122,13 @@
         let vbo;
 
         try {
-            let diffuseTex = await loadTexture(gl, 'diffuse_linear.png');
-            let glossyTex = await loadTexture(gl, 'glossy_linear.png');
-            let uvMaskTex = await loadTexture(gl, 'uv_mask.png');
+            let diffuseTex = await loadTexture('diffuse_linear.png');
+            let glossyTex = await loadTexture('glossy_linear.png');
+            let uvMaskTex = await loadTexture('uv_mask.png');
 
-            frag = await getShader(gl, gl.FRAGMENT_SHADER, 'fshader.glsl');
-            vert = await getShader(gl, gl.VERTEX_SHADER, 'vshader.glsl');
-            prog = createProgram(gl, vert, frag);
+            frag = await getShader(gl.FRAGMENT_SHADER, 'fshader.glsl');
+            vert = await getShader(gl.VERTEX_SHADER, 'vshader.glsl');
+            prog = createProgram(vert, frag);
 
             vbo = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -118,6 +155,7 @@
             let diffuseLocation = gl.getUniformLocation(prog, "diffuse_tex");
             let glossyLocation = gl.getUniformLocation(prog, "glossy_tex");
             let uvMaskLocation = gl.getUniformLocation(prog, "uv_mask_tex");
+            let userTexLocation = gl.getUniformLocation(prog, "user_tex");
 
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, diffuseTex);
@@ -131,7 +169,9 @@
             gl.bindTexture(gl.TEXTURE_2D, uvMaskTex);
             gl.uniform1i(uvMaskLocation, 2);
 
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            gl.uniform1i(userTexLocation, 3);
+            ready = true;
+            refreshUserTexture();
         } catch(e) {
             error = e.message;
             return;
