@@ -1,7 +1,5 @@
 <script>
-    import { createEventDispatcher } from 'svelte';
-
-	const dispatch = createEventDispatcher();
+	import { userImage } from './stores.js';
 
     let fileUrl;
     let files;
@@ -10,7 +8,7 @@
             let reader = new FileReader();
             reader.onload = (e) => {
                 fileUrl = e.target.result;
-                dispatch('picked', fileUrl);
+                userImage.set(fileUrl);
             }
             reader.readAsDataURL(files[0]);
         }
@@ -21,14 +19,22 @@
     #picker {
         display: flex;
         flex-direction: column;
-        width: 40em;
+        width: 20em;
         margin: 0em 1em 0em 1em;
     }
     #container {
-        width: 100%
+        width: 100%;
+        max-height: 20em;
     }
     img {
-        width: 100%
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    input {
+        color: #F0F0F0;
+        border: none;
+        padding: 0em;
     }
 </style>
 

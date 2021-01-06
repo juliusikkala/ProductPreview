@@ -1,21 +1,18 @@
 <script>
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
+    import { get } from 'svelte/store';
     import { PNG } from 'pngjs/browser';
     import { Buffer } from 'buffer';
+	import { userImage, scene } from './stores.js';
 
     let canvas;
     let error;
     let gl;
     let userTex;
+    let userTexIndex = 0;
+    let releaseMemory = () => {};
     let ready = false;
-
-    export let userImage = "favicon.png";
-    $: {
-        if(userImage)  {
-            refreshUserTexture(gl);
-        }
-    }
 
     async function getShader(type, name) {
         let res = await fetch(name);
@@ -40,9 +37,9 @@
         return program;
     }
 
-    function refreshUserTexture() {
+    function refreshUserTexture(imagePath) {
         let image = new Image();
-        image.src = userImage;
+        image.src = imagePath;
         image.onload = () => {
             if(!ready) return;
 
@@ -50,15 +47,15 @@
                 gl.deleteTexture(userTex);
             }
 
-            gl.activeTexture(gl.TEXTURE3);
+            gl.activeTexture(gl.TEXTURE0 + userTexIndex);
             userTex = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, userTex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            gl.generateMipmap(gl.TEXTURE_2D);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 
             drawFrame();
         };
@@ -104,34 +101,28 @@
     function drawFrame() {
         gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
-
-    onMount(async () => {
-        gl = canvas.getContext('webgl2');
-        if(!gl) {
-            error = "Unable to get a WebGL context!";
-            return;
-        }
-        let ext = gl.getExtension("EXT_color_buffer_float");
-        if(!ext) {
-            error = "This demo requires EXT_color_buffer_float support.";
-            return;
-        }
-
-        let frag;
-        let vert;
-        let prog;
-        let vbo;
+    
+    async function setupGenericScene(
+        fragShaderPath,
+        texturePaths,
+        textureNames
+    ) {
+        releaseMemory();
+        ready = false;
+        error = "";
+        userTexIndex = 0;
 
         try {
-            let diffuseTex = await loadTexture('diffuse_linear.png');
-            let glossyTex = await loadTexture('glossy_linear.png');
-            let uvMaskTex = await loadTexture('uv_mask.png');
+            let textures = [];
+            for(const path of texturePaths) {
+                textures.push(await loadTexture(path));
+            }
 
-            frag = await getShader(gl.FRAGMENT_SHADER, 'fshader.glsl');
-            vert = await getShader(gl.VERTEX_SHADER, 'vshader.glsl');
-            prog = createProgram(vert, frag);
+            let frag = await getShader(gl.FRAGMENT_SHADER, fragShaderPath);
+            let vert = await getShader(gl.VERTEX_SHADER, 'vshader.glsl');
+            let prog = createProgram(vert, frag);
 
-            vbo = gl.createBuffer();
+            let vbo = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
             const pos_data = [
                 -1, -1,
@@ -148,73 +139,142 @@
             gl.clear(gl.COLOR_BUFFER_BIT);
             gl.useProgram(prog);
 
-            let posAttr = gl.getAttribLocation(prog, "pos");
+            let posAttr = gl.getAttribLocation(prog, 'pos');
             gl.enableVertexAttribArray(posAttr);
             gl.vertexAttribPointer(posAttr, 2, gl.FLOAT, false, 0, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
 
-            let diffuseLocation = gl.getUniformLocation(prog, "diffuse_tex");
-            let glossyLocation = gl.getUniformLocation(prog, "glossy_tex");
-            let uvMaskLocation = gl.getUniformLocation(prog, "uv_mask_tex");
-            let userTexLocation = gl.getUniformLocation(prog, "user_tex");
+            for(const name of textureNames) {
+                let loc = gl.getUniformLocation(prog, name);
+                let index = userTexIndex++;
+                gl.activeTexture(gl.TEXTURE0 + index);
+                gl.bindTexture(gl.TEXTURE_2D, textures[index]);
+                gl.uniform1i(loc, index);
+            }
 
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, diffuseTex);
-            gl.uniform1i(diffuseLocation, 0);
+            let userTexLocation = gl.getUniformLocation(prog, 'user_tex');
+            gl.uniform1i(userTexLocation, userTexIndex);
 
-            gl.activeTexture(gl.TEXTURE1);
-            gl.bindTexture(gl.TEXTURE_2D, glossyTex);
-            gl.uniform1i(glossyLocation, 1);
-
-            gl.activeTexture(gl.TEXTURE2);
-            gl.bindTexture(gl.TEXTURE_2D, uvMaskTex);
-            gl.uniform1i(uvMaskLocation, 2);
-
-            gl.uniform1i(userTexLocation, 3);
             ready = true;
-            refreshUserTexture();
+            refreshUserTexture(get(userImage));
+
+            releaseMemory = () => {
+                for(const tex of textures)
+                    gl.deleteTexture(tex);
+                gl.deleteBuffer(vbo);
+                gl.deleteProgram(prog);
+                gl.deleteShader(frag);
+                gl.deleteShader(vert);
+                releaseMemory = () => {};
+            };
         } catch(e) {
             error = e.message;
+        }
+    }
+
+    async function setupPuzzleScene() {
+        await setupGenericScene(
+            'puzzle/shader.glsl',
+            ['puzzle/diffuse_linear.png', 'puzzle/glossy_linear.png', 'puzzle/uv_mask.png'],
+            ['diffuse_tex', 'glossy_tex', 'uv_mask_tex']
+        );
+    }
+
+    async function setupTVScene() {
+        await setupGenericScene(
+            'tv/shader.glsl',
+            ['tv/base.png', 'tv/emission2.png', 'tv/uv_mask.png'],
+            ['base_tex', 'emission_tex', 'uv_mask_tex']
+        );
+    }
+
+    async function setupScene(scene) {
+        if(scene == 'puzzle')
+            await setupPuzzleScene();
+        else if(scene == 'tv')
+            await setupTVScene();
+    }
+
+    onMount(async () => {
+        gl = canvas.getContext('webgl2');
+        if(!gl) {
+            error = "Unable to get a WebGL context!";
+            return;
+        }
+        let ext = gl.getExtension("EXT_color_buffer_float");
+        if(!ext) {
+            error = "This demo requires EXT_color_buffer_float support.";
             return;
         }
 
-        return () => {
-            gl.deleteBuffer(vbo);
-            gl.deleteProgram(program);
-            gl.deleteShader(frag);
-            gl.deleteShader(vert);
-        };
+        scene.subscribe(async (selected) => await setupScene(selected));
+        userImage.subscribe(imagePath => refreshUserTexture(imagePath));
+    });
+
+    onDestroy(() => {
+        if(userTex) {
+            gl.deleteTexture(userTex);
+        }
+        releaseMemory();
     });
 </script>
 
 <style>
+    .stretchContainer {
+        position: relative;
+        flex-grow: 1;
+        display: block;
+    }
+
     .container {
         position: relative;
+        margin: 1em;
+        height: calc(100vh - 2em);
+        display: block;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-around;
     }
-    canvas {
+
+    .oneMoreContainer {
         position: relative;
-        left: 0;
-        top: 0;
-        width: 100%;
-        z-index: 0;
+        max-height: 100%;
+        display: block;
     }
+
+    canvas {
+        max-width: 1920px;
+        max-width: 100%;
+        max-height: 100%;
+        box-shadow: 0px 0px 20px #101010;
+        z-index: 0;
+        display: inline-block;
+    }
+
     .error, .loading {
         display: flex;
         justify-content: center;
         align-items: center;
         position: absolute;
-        left: 0;
+        width: calc(min(min((100vh - 2em) * 16 / 9, 1920px, 100%)));
+        margin-left: auto;
+        margin-right: auto;
         top: 0;
-        width: 100%;
-        height: 100%;
+        left: 0;
+        right: 0;
+        bottom: 0;
         z-index: 1;
         background-color: #000000c0;
     }
+
     h1 {
         font-size: 3em;
 		color: #f0f0f0;
 		font-weight: 700;
     }
+
     p {
         white-space: pre-wrap;
         font-size: 1.5em;
@@ -224,19 +284,23 @@
     }
 </style>
 
-<div class="container">
-    <canvas bind:this={canvas} width={1920} height={1080}>
-    </canvas>
-    {#if error}
-    <div class="error">
-        <div>
-            <h1>Error:</h1>
-            <p>{error}</p>
-        </div>
+<div class="stretchContainer">
+    <div class="container">
+        <div class="oneMoreContainer">
+            <canvas bind:this={canvas} width={1920} height={1080}>
+            </canvas>
+            {#if error}
+            <div class="error">
+                <div>
+                    <h1>Error:</h1>
+                    <p>{error}</p>
+                </div>
+            </div>
+            {:else if !ready}
+            <div class="loading" transition:fade>
+                <h1>Loading...</h1>
+            </div>
+            {/if}
+        </div> 
     </div>
-    {:else if !ready}
-    <div class="loading" transition:fade>
-        <h1>Loading...</h1>
-    </div>
-    {/if}
 </div>

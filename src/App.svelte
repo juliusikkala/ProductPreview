@@ -1,36 +1,20 @@
 <script>
 	export let name;
     import Viewer from './Viewer.svelte';
-    import ImagePicker from './ImagePicker.svelte';
-
-    let userImage;
-    function setImage(event) {
-        userImage = event.detail;
-    }
+    import OptionPanel from './OptionPanel.svelte';
 </script>
 
 <main>
-	<h1>Product Preview</h1>
     <div id="layout">
-        <Viewer userImage={userImage} />
-        <ImagePicker on:picked={setImage} />
+        <Viewer />
+        <OptionPanel />
     </div>
 </main>
 
 <style>
 	main {
 		text-align: center;
-		padding: 1em;
-		max-width: 240px;
-		margin: 0 auto;
-	}
-
-	h1 {
-		color: #ff3e00;
-		text-transform: uppercase;
-        font-family: "Comic Sans MS", "Comic Sans", cursive;
-		font-size: 4em;
-		font-weight: 600;
+        height: 100%;
 	}
 
 	@media (min-width: 640px) {
@@ -41,5 +25,7 @@
 
     #layout {
         display: flex;
+        height: 100%;
+        align-items: center;
     }
 </style>
