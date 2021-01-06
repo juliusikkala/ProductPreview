@@ -19,7 +19,6 @@ void main() {
     vec3 uv2 = texelFetch(uv_mask_tex, p*2+ivec2(0, 1), 0).rga;
     vec3 uv3 = texelFetch(uv_mask_tex, p*2+ivec2(1, 1), 0).rga;
 
-    float sum_mask = uv0.b + uv1.b + uv2.b + uv3.b;
     vec3 avg_color = vec3(0);
     if(uv0.b > 0.0)
     {
