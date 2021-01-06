@@ -52,6 +52,7 @@ Poster scene:
 
 TV scene:
 * [Fireplace Room](https://casual-effects.com/data/) (Wig42, CC-BY-3.0)
+* [Industrial sideboard](https://www.blendswap.com/blend/24008) (CC0)
 * [Husk chair](https://www.blendswap.com/blend/11475) (CC0)
 * [Floor Lamp](https://www.blendswap.com/blend/20724) (CC0)
 
