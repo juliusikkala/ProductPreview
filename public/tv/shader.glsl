@@ -47,10 +47,10 @@ void main() {
 
     float tv_brightness = 2.0;
     vec4 emit = vec4(tv_brightness * avg_color * 0.25, 1);
-    vec4 avg_col = tv_brightness * textureLod(user_tex, vec2(0.5), 1000.0);
-    avg_col.rgb *= avg_col.a;
+    vec4 user_col = tv_brightness * textureLod(user_tex, vec2(0.5), 1000.0);
+    user_col.rgb *= user_col.a;
 
-    vec4 composite = base_col + emission_col * avg_col + emit;
+    vec4 composite = base_col + emission_col * user_col + emit;
 
     out_color = vec4(pow(composite.rgb, vec3(1.0/2.2)), 1.0);
 }

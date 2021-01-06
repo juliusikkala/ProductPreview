@@ -188,11 +188,21 @@
         );
     }
 
+    async function setupPosterScene() {
+        await setupGenericScene(
+            'poster/shader.glsl',
+            ['poster/base.png', 'poster/metallic.png', 'poster/uv_mask.png'],
+            ['base_tex', 'metallic_tex', 'uv_mask_tex']
+        );
+    }
+
     async function setupScene(scene) {
         if(scene == 'puzzle')
             await setupPuzzleScene();
         else if(scene == 'tv')
             await setupTVScene();
+        else if(scene == 'poster')
+            await setupPosterScene();
     }
 
     onMount(async () => {

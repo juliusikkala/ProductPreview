@@ -3,6 +3,7 @@
 
     let scenes = [
         { id : 'puzzle', text: 'Puzzle' },
+        { id : 'poster', text: 'Metallic Poster' },
         { id : 'tv', text: 'TV Room' },
     ];
     let selected = 'puzzle';
