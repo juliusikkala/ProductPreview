@@ -55,4 +55,4 @@ TV scene:
 * [Husk chair](https://www.blendswap.com/blend/11475) (CC0)
 * [Floor Lamp](https://www.blendswap.com/blend/20724) (CC0)
 
-The TV and poster assets were created by me.
+The TV and poster assets and the placeholder image were created by me.
